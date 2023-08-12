@@ -215,3 +215,45 @@ def checking_availability(model):
             "You can also configure a default model in .env"
         )
         exit()
+
+
+def main(script_name, *script_args, revert=False, model=default_gpt_model, confirm=True):
+    """
+    main function for running
+    """
+
+    if revert:
+        backup_file = script_name + ".bak"
+        if os.path.exists(backup_file):
+            shutil.copy(backup_file, script_name)
+            print(f"Reverted changes to {script_name}")
+            sys.exit(0)
+        else:
+            print(f"No BackUp file found for {script_name}")
+            sys.exit(1)
+
+    # checking model availability
+    checking_availability(model)
+
+    # For Making a BackUp file of original file
+    shutil.copy(script_name, script_name + ".bak")
+
+    while True:
+        output, returncode = run_script(script_name, script_args)
+
+        if returncode == 0:
+            cprint("Script ran Successfully!!", "blue")
+            print("Output: ", output)
+            break
+        else:
+            cprint("Script Crashed.Trying to fix...", "blue")
+            print("Output: ", output)
+            json_response = send_error_to_gpt(
+                file_path=script_name,
+                args=script_args,
+                error_messages=output,
+                model=model,
+            )
+
+            apply_changes(script_name, json_response, confirm=confirm)
+            cprint("--------  Changes Applied.Rerunning...", "blue")

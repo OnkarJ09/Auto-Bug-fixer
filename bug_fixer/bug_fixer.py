@@ -99,3 +99,41 @@ def json_validate_response(
     raise Exception(
         f"No valid json response found after {validate_json_retry} tries. Now Exiting."
     )
+
+
+def send_error_to_gpt(
+        file_path: str, args: List, error_messages: str, model: str = default_gpt_model
+) -> Dict:
+    with open(file_path, "r") as f:
+        file_line = f.readlines()
+
+    file_with_lines = []
+    for i, line in enumerate(file_line):
+        file_with_lines.append(str(i + 1) + ":" + line)
+    file_with_lines = "".join(file_with_lines)
+
+    prompt = (
+        "Here is the script that needs fixing:\n\n"
+        f"{file_with_lines}\n\n"
+        "Here are the arguments it has provided:\n\n"
+        f"{args}\n\n"
+        "Here is the error message:\n\n"
+        f"{error_message}\n"
+        "Please provide your suggested changes, and remember to stick to the"
+        "exact format as described above."
+    )
+
+    # For printing prompts
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        },
+        {
+            "role": "user",
+            "content": prompt,
+        },
+    ]
+    return json_validate_response(model, messages)
+
+

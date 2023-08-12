@@ -200,3 +200,18 @@ def apply_changes(
         f.writelines(file_lines)
     cprint("----------------  Changes Applied  ------------------", "green")
 
+
+def checking_availability(model):
+    """
+    This function will check,
+    if GPTs models are available,
+    there token limit, etc.
+    """
+    models_available = [x["id"] for x in openai.Model.list()["data"]]
+    if model not in models_available:
+        cprint(
+            f"Model {model} is not available.Try rerunning with "
+            f"`{'--', models_available, '--'}` instead."
+            "You can also configure a default model in .env"
+        )
+        exit()

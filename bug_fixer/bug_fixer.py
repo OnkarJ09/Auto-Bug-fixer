@@ -118,7 +118,7 @@ def send_error_to_gpt(
         "Here are the arguments it has provided:\n\n"
         f"{args}\n\n"
         "Here is the error message:\n\n"
-        f"{error_message}\n"
+        f"{error_messages}\n"
         "Please provide your suggested changes, and remember to stick to the"
         "exact format as described above."
     )
@@ -136,4 +136,63 @@ def send_error_to_gpt(
     ]
     return json_validate_response(model, messages)
 
+
+def apply_changes(
+        file_path: str, changes: List, confirm: bool = False
+):
+    """
+    This will read and confirm/apply the changes
+    """
+    with open(file_path) as f:
+        original_file_lines = f.readlines()
+
+    # For finding explatation elements
+    operation_changes = [change for change in changes if "operation" in change]
+    explanation = [
+        change["explanation"] for change in changes if "explanation" in change
+    ]
+
+    # For printing changes in reverse order so,it is seen properly on output window
+    operation_changes.sort(key=lambda x: x["line"], reverse=True)
+
+    file_lines = original_file_lines.copy()
+    for change in operation_changes:
+        operation = change["operation"]
+        line = change["line"]
+        content = change["content"]
+
+        if operation == "Replace":
+            file_lines[line - 1] = content + "\n"
+        elif operation == "Delete":
+            del file_lines[line - 1]
+        elif operation == "InsertAfter":
+            file_lines.insert(line, content + "\n")
+
+    # For printing explanation
+    cprint("Explanation: ", "blue")
+    for explanation in explanations:
+        cprint(f"- {explanation}", "blue")
+
+    # For Displaying changes in diff view
+    print("\nChanges to be made: ")
+    diff = difflib.unified_diff(original_file_lines, file_lines, lineterm="")
+    for line in diff:
+        if line.startswith("+"):
+            cprint(line, "green", end="")
+        elif line.startswith("-"):
+            cprint(line, "red", end="")
+        else:
+            print(line, end="")
+
+    # For confirming through user that if he wants changes or not
+    if confirm:
+        confirmation = input("Do you want to apply this changes? (y/n): ")
+        if confirmation.lower() != "y":
+            print("Changes not applied.")
+            sys.exit(0)
+
+    # For applying changes after confirmation(y) from the user
+    with open(file_path, "w") as f:
+        f.writelines(file_lines)
+    cprint("----------------  Changes Applied  ------------------", "green")
 

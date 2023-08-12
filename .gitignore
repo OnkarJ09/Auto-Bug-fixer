@@ -1,0 +1,5 @@
+# For Excluding Virtual Environment
+venv/
+
+# For PyCharm generated Files
+.idea/

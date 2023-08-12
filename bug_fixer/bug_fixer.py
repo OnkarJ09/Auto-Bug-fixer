@@ -104,6 +104,10 @@ def json_validate_response(
 def send_error_to_gpt(
         file_path: str, args: List, error_messages: str, model: str = default_gpt_model
 ) -> Dict:
+    """
+    This will send error to GPT for fixing.
+    And will return a response inform of JSON file
+    """
     with open(file_path, "r") as f:
         file_line = f.readlines()
 

@@ -88,5 +88,14 @@ def json_validate_response(
                     ),
                 }
             )
-
-
+            # For decreasing np_retry
+            np_retry -= 1
+            # For reruning API-call
+            return json_validate_response(model, messages, np_retry)
+        except Exception as e:
+            cprint(f"Unknwn error: {e}", "red")
+            cprint(f"\nGPT Response:\n\n{content}\n\n", "yellow")
+            raise e
+    raise Exception(
+        f"No valid json response found after {validate_json_retry} tries. Now Exiting."
+    )

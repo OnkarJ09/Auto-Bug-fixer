@@ -1,4 +1,3 @@
-from bug_fixer.config import OPENAI_API_KEY
 from typing import List, Dict
 from termcolor import cprint
 from dotenv import load_dotenv
@@ -13,7 +12,7 @@ import sys
 
 # SetUp OpenAI API key
 load_dotenv()
-openai.api_key = os.getenv(OPENAI_API_KEY)
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Default Model from Openai
 default_gpt_model = os.environ.get('DEFAULT_MODEL', 'gpt-3.5-turbo-16k')

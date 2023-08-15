@@ -1,11 +1,5 @@
-# For Excluding Virtual Environment
+# For Excluding VENV
 venv/
 
-# For PyCharm generated Files
-.idea/
-
-# For Exluding Temporary Files
-temp/
-
-# For Excluding test files
-test/
+# For PyCharm files
+.idea

@@ -10,11 +10,11 @@ import os
 import sys
 
 
-# SetUp OpenAI API key
+# For SetUp of OpenAI API key
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Default Model from Openai
+# For setting up a Default Model from Openai
 default_gpt_model = os.environ.get('DEFAULT_MODEL', 'gpt-3.5-turbo-16k')
 
 # NP retries for json_validate_response
@@ -29,7 +29,7 @@ def run_script(script_name: str, script_args: List) -> str:
     """
     If Scripts name end with '.py' then this func will run it in python
     and if not
-    then it will run it in node
+    then it will run it in node(js)
     """
     script_args = [str(arg) for arg in script_args]
     subprocess_args = (
@@ -75,7 +75,7 @@ def json_validate_response(
             return json_response
         except (json.decoder.JSONDecodeError, ValueError) as e:
             cprint(f"{e}. Trying Rerunning the query,", "red")
-            # to debug
+            # For debugging 
             cprint(f"\nGPT Response:\n\n{content}\n\n", "yellow")
             # This will write a user message that will tell json is invalid
             messages.append(
@@ -89,7 +89,7 @@ def json_validate_response(
             )
             # For decreasing np_retry
             np_retry -= 1
-            # For reruning API-call
+            # For reruning API-calls
             return json_validate_response(model, messages, np_retry)
         except Exception as e:
             cprint(f"Unknwn error: {e}", "red")
@@ -104,7 +104,7 @@ def send_error_to_gpt(
         file_path: str, args: List, error_messages: str, model: str = default_gpt_model
 ) -> Dict:
     """
-    This will send error to GPT for fixing.
+    This func will send error to GPT for fixing.
     And will return a response inform of JSON file
     """
     with open(file_path, "r") as f:
@@ -144,7 +144,7 @@ def apply_changes(
         file_path: str, changes: List, confirm: bool = False
 ):
     """
-    This will read and confirm/apply the changes
+    This will read and confirm/apply the changes as the user said
     """
     with open(file_path) as f:
         original_file_lines = f.readlines()
@@ -218,7 +218,7 @@ def checking_availability(model):
 
 def main(script_name, *script_args, revert=False, model=default_gpt_model, confirm=True):
     """
-    main function for running
+    main function for running the bug fixer
     """
 
     if revert:
@@ -234,7 +234,7 @@ def main(script_name, *script_args, revert=False, model=default_gpt_model, confi
     # checking model availability
     checking_availability(model)
 
-    # For Making a BackUp file of original file
+    # For Making a BackUp file of original file with .bak as extension 
     shutil.copy(script_name, script_name + ".bak")
 
     while True:

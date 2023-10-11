@@ -3,3 +3,6 @@ venv/
 
 # For PyCharm files
 .idea
+
+# For Excluding Pycache
+*__pycache__/

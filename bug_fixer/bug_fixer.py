@@ -2,33 +2,34 @@ from typing import List, Dict
 from termcolor import cprint
 from dotenv import load_dotenv
 import difflib
+import openai
+import subprocess
+import shutil
 import json
 import os
-import shutil
-import subprocess
 import sys
-import openai
 
 
-# Set up the OpenAI API
+# SetUp OpenAI API key
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Default model is GPT-4
-DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "gpt-4")
+# Default Model from Openai
+default_gpt_model = os.environ.get('DEFAULT_MODEL', 'gpt-3.5-turbo-16k')
 
-# No. of retries for json_validated_response, default to -1(infinite)
-VALIDATE_JSON_RETRY = int(os.getenv("VALIDATE_JSON_RETRY", -1))
+# NP retries for json_validate_response
+validate_json_retry = int(os.getenv('VALIDATE_JSON_RETRY', -1))       # here -1 indicates infinite tries
 
-# Read the system prompt
-with open(os.path.join(os.path.dirname(__file__), "..", "prompt.txt"), "r") as f:
+# for reading system prompts
+with open(os.path.join(os.path.dirname(__file__), '...', 'prompt.txt'), "r") as f:
     SYSTEM_PROMPT = f.read()
 
 
 def run_script(script_name: str, script_args: List) -> str:
     """
-    If script_name.endswith(".py") then run with python
-    else run with node
+    If Scripts name end with '.py' then this func will run it in python
+    and if not
+    then it will run it in node
     """
     script_args = [str(arg) for arg in script_args]
     subprocess_args = (
@@ -44,86 +45,88 @@ def run_script(script_name: str, script_args: List) -> str:
     return result.decode("utf-8"), 0
 
 
-def json_validated_response(
-    model: str, messages: List[Dict], np_retry: int = VALIDATE_JSON_RETRY
+def json_validate_response(
+        model: str, messages: List[Dict], np_retry: int = validate_json_retry
 ) -> Dict:
     """
-    This function is needed because the API can return a non-json response.
-    This will run recursively VALIDATE_JSON_RETRY times.
-    If VALIDATE_JSON_RETRY is -1, it will run recursively until a valid json
-    response is returned.
+    This func will convert non-json to json responses.
+    This will run validate_json_retry continuously,
+    as validate_json_retry has value set to -1 it will run in an Infinite Loop
+    until the responses grnrrated is json response.
     """
     json_response = {}
     if np_retry != 0:
         response = openai.ChatCompletion.create(
             model=model,
             messages=messages,
-            temperature=0.5,
+            temperature=0.5
         )
         messages.append(response.choices[0].message)
         content = response.choices[0].message.content
-        # see if json can be parsed
+        # to see if json can be resolved
         try:
-            # For finding the starting position of the JSON data
             json_start_index = content.index(
-                "["
+                "["       # to find staring position of json data
             )
-            # For extracting the JSON data from the response string
             json_data = content[
-                json_start_index:
+                json_start_index     # to extract data from the string
             ]
             json_response = json.loads(json_data)
             return json_response
         except (json.decoder.JSONDecodeError, ValueError) as e:
-            cprint(f"{e}. Re-running the query.", "red")
-            # For debuging
-            cprint(f"\nGPT RESPONSE:\n\n{content}\n\n", "yellow")
-            # For telling user what is wrong with their response
+            cprint(f"{e}. Trying Rerunning the query,", "red")
+            # to debug
+            cprint(f"\nGPT Response:\n\n{content}\n\n", "yellow")
+            # This will write a user message that will tell json is invalid
             messages.append(
                 {
-                    "role": "user",
+                    "role": 'user',
                     "content": (
-                        "Your response could not be parsed by json.loads. "
-                        "Please restate your last message as pure JSON."
-                        ),
+                        "Your response could not be resolved by json.loads."
+                        "PLEASE, Rewrite your last message as pure json."
+                    ),
                 }
             )
-            # For deccreasing the number of retries
+            # For decreasing np_retry
             np_retry -= 1
-            # rerun the api call
-            return json_validated_response(model, messages, np_retry)
+            # For reruning API-call
+            return json_validate_response(model, messages, np_retry)
         except Exception as e:
-            cprint(f"Unknown error: {e}", "red")
-            cprint(f"\nGPT RESPONSE:\n\n{content}\n\n", "yellow")
+            cprint(f"Unknwn error: {e}", "red")
+            cprint(f"\nGPT Response:\n\n{content}\n\n", "yellow")
             raise e
     raise Exception(
-        f"No valid json response found after {VALIDATE_JSON_RETRY} tries. Exiting."
+        f"No valid json response found after {validate_json_retry} tries. Now Exiting."
     )
 
 
 def send_error_to_gpt(
-    file_path: str, args: List, error_message: str, model: str = DEFAULT_MODEL
+        file_path: str, args: List, error_messages: str, model: str = default_gpt_model
 ) -> Dict:
+    """
+    This will send error to GPT for fixing.
+    And will return a response inform of JSON file
+    """
     with open(file_path, "r") as f:
-        file_lines = f.readlines()
+        file_line = f.readlines()
 
     file_with_lines = []
-    for i, line in enumerate(file_lines):
-        file_with_lines.append(str(i + 1) + ": " + line)
+    for i, line in enumerate(file_line):
+        file_with_lines.append(str(i + 1) + ":" + line)
     file_with_lines = "".join(file_with_lines)
 
     prompt = (
         "Here is the script that needs fixing:\n\n"
         f"{file_with_lines}\n\n"
-        "Here are the arguments it was provided:\n\n"
+        "Here are the arguments it has provided:\n\n"
         f"{args}\n\n"
         "Here is the error message:\n\n"
-        f"{error_message}\n"
-        "Please provide your suggested changes, and remember to stick to the "
+        f"{error_messages}\n"
+        "Please provide your suggested changes, and remember to stick to the"
         "exact format as described above."
     )
 
-    # print(prompt)
+    # For printing prompts
     messages = [
         {
             "role": "system",
@@ -134,24 +137,25 @@ def send_error_to_gpt(
             "content": prompt,
         },
     ]
+    return json_validate_response(model, messages)
 
-    return json_validated_response(model, messages)
 
-
-def apply_changes(file_path: str, changes: List, confirm: bool = False):
+def apply_changes(
+        file_path: str, changes: List, confirm: bool = False
+):
     """
-    Pass changes as loaded json (list of dicts)
+    This will read and confirm/apply the changes
     """
     with open(file_path) as f:
         original_file_lines = f.readlines()
 
-    # Filter out explanation elements
+    # For finding explatation elements
     operation_changes = [change for change in changes if "operation" in change]
-    explanations = [
+    explanation = [
         change["explanation"] for change in changes if "explanation" in change
     ]
 
-    # Sort the changes in reverse line order
+    # For printing changes in reverse order so,it is seen properly on output window
     operation_changes.sort(key=lambda x: x["line"], reverse=True)
 
     file_lines = original_file_lines.copy()
@@ -167,13 +171,13 @@ def apply_changes(file_path: str, changes: List, confirm: bool = False):
         elif operation == "InsertAfter":
             file_lines.insert(line, content + "\n")
 
-    # Print explanations
-    cprint("Explanations:", "blue")
+    # For printing explanation
+    cprint("Explanation: ", "blue")
     for explanation in explanations:
         cprint(f"- {explanation}", "blue")
 
-    # Display changes diff
-    print("\nChanges to be made:")
+    # For Displaying changes in diff view
+    print("\nChanges to be made: ")
     diff = difflib.unified_diff(original_file_lines, file_lines, lineterm="")
     for line in diff:
         if line.startswith("+"):
@@ -183,30 +187,40 @@ def apply_changes(file_path: str, changes: List, confirm: bool = False):
         else:
             print(line, end="")
 
+    # For confirming through user that if he wants changes or not
     if confirm:
-        # check if user wants to apply changes or exit
-        confirmation = input("Do you want to apply these changes? (y/n): ")
+        confirmation = input("Do you want to apply this changes? (y/n): ")
         if confirmation.lower() != "y":
-            print("Changes not applied")
+            print("Changes not applied.")
             sys.exit(0)
 
+    # For applying changes after confirmation(y) from the user
     with open(file_path, "w") as f:
         f.writelines(file_lines)
-    print("Changes applied.")
+    cprint("----------------  Changes Applied  ------------------", "green")
 
 
-def check_model_availability(model):
-    available_models = [x["id"] for x in openai.Model.list()["data"]]
-    if model not in available_models:
-        print(
-            f"Model {model} is not available. Perhaps try running with "
-            "`--model=gpt-3.5-turbo` instead? You can also configure a "
-            "default model in the .env"
+def checking_availability(model):
+    """
+    This function will check,
+    if GPTs models are available,
+    there token limit, etc.
+    """
+    models_available = [x["id"] for x in openai.Model.list()["data"]]
+    if model not in models_available:
+        cprint(
+            f"Model {model} is not available.Try rerunning with "
+            f"`{'--', models_available, '--'}` instead."
+            "You can also configure a default model in .env"
         )
         exit()
 
 
-def main(script_name, *script_args, revert=False, model=DEFAULT_MODEL, confirm=False):
+def main(script_name, *script_args, revert=False, model=default_gpt_model, confirm=True):
+    """
+    main function for running
+    """
+
     if revert:
         backup_file = script_name + ".bak"
         if os.path.exists(backup_file):
@@ -214,32 +228,31 @@ def main(script_name, *script_args, revert=False, model=DEFAULT_MODEL, confirm=F
             print(f"Reverted changes to {script_name}")
             sys.exit(0)
         else:
-            print(f"No backup file found for {script_name}")
+            print(f"No BackUp file found for {script_name}")
             sys.exit(1)
 
-    # check if model is available
-    check_model_availability(model)
+    # checking model availability
+    checking_availability(model)
 
-    # Make a backup of the original script
+    # For Making a BackUp file of original file
     shutil.copy(script_name, script_name + ".bak")
 
     while True:
         output, returncode = run_script(script_name, script_args)
 
         if returncode == 0:
-            cprint("Script ran successfully.", "blue")
-            print("Output:", output)
+            cprint("Script ran Successfully!!", "blue")
+            print("Output: ", output)
             break
-
         else:
-            cprint("Script crashed. Trying to fix...", "blue")
-            print("Output:", output)
+            cprint("Script Crashed.Trying to fix...", "blue")
+            print("Output: ", output)
             json_response = send_error_to_gpt(
                 file_path=script_name,
                 args=script_args,
-                error_message=output,
+                error_messages=output,
                 model=model,
             )
 
             apply_changes(script_name, json_response, confirm=confirm)
-            cprint("Changes applied. Rerunning...", "blue")
+            cprint("--------  Changes Applied.Rerunning...", "blue")
